@@ -1,0 +1,22 @@
+[
+    {
+        "title": "Rogue Fitness",
+        "web": "https://www.roguefitness.com",
+        "webMod":"rogue.com"
+    },
+    {
+        "title": "Titan Fitness",
+        "web": "https://www.titan.fitness",
+        "webMod":"titan.com"
+    },
+    {
+        "title": "Body Basics",
+        "web": "https://www.bodybasics.com",
+        "webMod":"BodyBasics.com"
+    },
+    {
+        "title": "Bowflex",
+        "web": "https://www.bowflex.com",
+        "webMod":"Bowflex.com"
+    }
+]
