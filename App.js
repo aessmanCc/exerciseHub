@@ -1,33 +1,81 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import { StyleSheet, Text, View, TextInput, Image, FlatList, TouchableOpacity, } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import * as WebBrowser from 'expo-web-browser';
 import * as SplashScreen from 'expo-splash-screen';
-import data from './exercise.json';
+import sites from './exercise.json';
+import * as SQLite from 'expo-sqlite';
+
+
+SplashScreen.preventAutoHideAsync();
+setTimeout(SplashScreen.hideAsync, 2000);
+
+const db = SQLite.openDatabase('equipt.db');
+
+db.transaction((tx) => {
+  tx.executeSql(
+    'CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY AUTOINCREMENT, item TEXT, cost REAL);'
+  );
+});
 
 
 function handleOnPress(urlValue) {
   WebBrowser.openBrowserAsync(urlValue);
-}
 
+}
 
 function HomeScreen({ navigation }) {
 
-  SplashScreen.preventAutoHideAsync();
-  setTimeout(SplashScreen.hideAsync, 2000);
-
-  const [item, setItem] = useState(0);
-  const [cost, setCost] = useState(0);
-
+  const [item, setItem] = useState("");
+  const [cost, setCost] = useState("");
   const [items, setItems] = useState([]);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const addItem = (item, cost) => {
-    setItems([...items, { item, cost }]);
+  useEffect(() => {
+    db.transaction((tx) => {
+      tx.executeSql('SELECT * FROM items', [], (_, { rows }) => {
+        setItems(rows._array);
+      });
+    });
+  }, []);
+
+  
+  const addItem = () => {
+    if (item === '' || isNaN(cost) || cost === '') {
+      setErrorMessage('Please enter a valid item and cost.');
+      return;
+    }
+    db.transaction((tx) => {
+      tx.executeSql(
+        'INSERT INTO items (item, cost) VALUES (?, ?)',
+        [item.trim(), Number(cost)],
+        (_, { insertId }) => {
+          setItems([...items, { id: insertId, item: item.trim(), cost: Number(cost) }]);
+        }
+      );
+    });
+    setErrorMessage('');
+  };
+  
+
+  const clearTable = () => {
+    db.transaction((tx) => {
+      tx.executeSql('DELETE FROM items');
+    });
+
+    db.transaction((tx) => {
+      tx.executeSql('SELECT * FROM items', [], (_, { rows }) => {
+        setItems(rows._array);
+      });
+    });
+
+
   };
 
   return (
     <View style={styles.container}>
+      {errorMessage ? <Text style={styles.errorMessage}>{errorMessage}</Text> : null}
       <View>
         <TextInput
           style={styles.inputSetting}
@@ -41,9 +89,15 @@ function HomeScreen({ navigation }) {
           onChangeText={(cost) => setCost(cost)}
         />
       </View>
-      <TouchableOpacity onPress={() => addItem(item, cost)} style={styles.button}>
+
+      <View style={styles.inlineButtonContainer} >
+      <TouchableOpacity onPress={addItem} style={styles.button}>
           <Text style={styles.buttonText}>Add Item</Text>
       </TouchableOpacity>
+      <TouchableOpacity onPress={clearTable} style={styles.buttonC}>
+          <Text style={styles.buttonText}>Clear List</Text>
+      </TouchableOpacity>
+      </View>
       <View style={styles.inlineButtonContainer} >
       <TouchableOpacity onPress={() => {navigation.navigate('Calculations', { items });}} style={styles.buttonP}>
         <Text style={styles.buttonText}>View Total</Text>
@@ -52,20 +106,17 @@ function HomeScreen({ navigation }) {
         <Text style={styles.buttonText}>View Websites</Text>
       </TouchableOpacity>
       </View>
-
       <FlatList
-        data={items}
-        renderItem={({ item }) => (
-          <View style={styles.inlineListContainer}>
-          <Text style={styles.Equiptcontent}>
-            {item.item}  
-          </Text>
-          <Text style={styles.Equiptcost}>
-           ${item.cost}
-          </Text>
-          </View>
-        )}
-      />
+          data={items}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <View style={styles.inlineListContainer}>
+              <Text style={styles.Equiptcontent}>{item.item}</Text>
+              <Text style={styles.Equiptcost}>${item.cost}</Text>
+            </View>
+          )}
+        />
+
     </View>
   );
 }
@@ -106,7 +157,7 @@ function WebsiteScreen({ navigation }) {
 
   return (
     <View style={styles.mainContainer}>
-      <FlatList data={data} renderItem={renderRow} />
+      <FlatList data={sites} renderItem={renderRow} />
       <TouchableOpacity onPress={() => { navigation.navigate('Calculator');}} style={styles.button}>
         <Text style={styles.buttonText}>Home</Text>
       </TouchableOpacity>
@@ -119,6 +170,7 @@ function WebsiteScreen({ navigation }) {
 const Stack = createNativeStackNavigator();
 
 export default function App() {
+
   return (
     <NavigationContainer>
       <Stack.Navigator>
@@ -166,7 +218,6 @@ export default function App() {
         />
       </Stack.Navigator>
     </NavigationContainer>
-
   );
 }
 
@@ -268,6 +319,7 @@ const styles = StyleSheet.create({
     padding: 20,
     alignItems: 'center',
     marginTop: 20,
+    marginRight: 10,
   },
   buttonW: {
     backgroundColor: '#9A2FAE',
@@ -289,6 +341,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 20,
   },
+  buttonC: {
+    backgroundColor: '#E21B3C',
+    borderRadius: 20,
+    alignItems: 'center',
+    marginLeft: 20,
+    padding: 18,
+    marginTop: 20,
+    marginRight: 20,
+  },
   buttonText: {
     fontSize: 20,
     color: "white",
@@ -297,10 +358,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "white",
   },
+  
   inlineListContainer: {
     flexDirection: 'row',
     color: '#fff',
     justifyContent: 'space-between',
 
   },
+  errorMessage: {
+    color: "#E21B3C",
+    fontSize: 18,
+  }
 });
